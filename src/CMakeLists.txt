@@ -22,6 +22,8 @@ ENDIF()
 set (3rd_party_BUILD_DIR            "${CMAKE_CURRENT_BINARY_DIR}/3rd_party")
 set (3rd_party_LIB_DIR              "${3rd_party_BUILD_DIR}/lib"           )
 set (3rd_party_BIN_DIR              "${3rd_party_BUILD_DIR}/bin"           )
+set (3rd_party_INCLUDE_DIR          "${3rd_party_BUILD_DIR}/include"       )
+set (3rd_party_DATA_DIR             "${3rd_party_BUILD_DIR}/data"          )
 set (3rd_party_Fortran_MODULE_DIR   "${3rd_party_BUILD_DIR}/Fortran_Module")
 
 
@@ -32,22 +34,42 @@ string(TOLOWER ${LIB_TYPE} SEARCH_TYPE)         # make lower case and store as S
 
 
 #### Check if we have HDF5 already
-find_package ( HDF5_fortran QUIET)
+#find_package ( HDF5_fortran QUIET)
 if ( NOT HDF5_FOUND )
     message ( STATUS "HDF5 not found. Building from source...")
     set ( BUILD_HDF5 TRUE )
+else()
+    set ( BUILD_HDF5 FALSE )
 endif()
 
 
-option (HDF5_COMPRESSION "Enable compression in HDF5." OFF)
+option (HDF5_COMPRESSION "Enable compression in HDF5." ON)
 mark_as_advanced (HDF5_COMPRESSION)
-
 
 
 
    # If we are going to use HDF5, include the following
 if ( BUILD_HDF5 )
-      # The included script needs these defined:
+ 
+      # If we are going to use ZLib, first look for it
+   if (HDF5_COMPRESSION)
+
+#FIXME: not sure what I did, but cannot compile with system zlib anymore on the mac....????
+      if (NOT APPLE)
+         find_package(ZLIB)
+      endif()
+      if ( NOT ZLIB_FOUND )
+         message ( STATUS "ZLIB not found.  Building from source..." )
+         set ( BUILD_ZLIB TRUE )
+      else()
+         set ( BUILD_ZLIB FALSE )
+      endif()
+   endif()
+
+      # Now we can either have the HDF5 build system create this, or mamnually do it.  Trying HDF5 build system.
+
+
+     # The included script needs these defined:
       #     3rd_party_BUILD_DIR         
       #     3rd_party_LIB_DIR           
       #     3rd_party_BIN_DIR           

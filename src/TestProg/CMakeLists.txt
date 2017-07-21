@@ -20,7 +20,7 @@ if (BUILD_HDF5)
 endif()
 
 add_executable(rdwt h5_rdwt.f90)
-target_link_libraries(rdwt ${HDF5_LIBRARIES})
+target_link_libraries(rdwt  ${HDF5_LIBRARIES})
 
 
 
