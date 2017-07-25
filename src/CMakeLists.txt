@@ -28,8 +28,8 @@ set (3rd_party_Fortran_MODULE_DIR   "${3rd_party_BUILD_DIR}/Fortran_Module")
 
 
 # Set library type
-#set (LIB_TYPE STATIC)
-set (LIB_TYPE SHARED)
+set (LIB_TYPE STATIC)
+#set (LIB_TYPE SHARED)
 string(TOLOWER ${LIB_TYPE} SEARCH_TYPE)         # make lower case and store as SEARCH_TYPE.  This is used for finding the HDF5 libraries to link
 
 #### Check if we have HDF5 already
@@ -53,10 +53,10 @@ if ( BUILD_HDF5 )
       # If we are going to use ZLib, first look for it
    if (HDF5_COMPRESSION)
 
-#FIXME: not sure what I did, but cannot compile with system zlib anymore on the mac....????
-      if (NOT APPLE)
-         find_package(ZLIB)
-      endif()
+#FIXME: not sure what I did, but cannot compile with system zlib anymore on the mac or linux with static....????
+#      if (NOT APPLE)
+#         find_package(ZLIB)
+#      endif()
       if ( NOT ZLIB_FOUND )
          message ( STATUS "ZLIB not found.  Building from source..." )
          set ( BUILD_ZLIB TRUE )
