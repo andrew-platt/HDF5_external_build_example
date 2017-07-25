@@ -10,6 +10,8 @@
    set (HDF5_EXPORTED_TARGETS "hdf5-targets")
    set (HDF5_CMAKE_Fortran_MODULE_DIRECTORY "${3rd_party_Fortran_MODULE_DIR}")      # location same as the ExternalProject add info below
 
+
+
    # Need to set flags for C++11 standard.  HDF5 needs this, as does EnDyn.
    include(CheckCXXCompilerFlag)
    CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
@@ -22,7 +24,11 @@
            message(STATUS "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
    endif()
   
-
+   if (${LIB_TYPE} MATCHES "SHARED")
+      SET(LIB_SHARED ON)
+   elseif (${LIB_TYPE} MATCHES "STATIC")
+      SET(LIB_SHARED OFF)
+   endif()
 
    set(HDF5_CMAKE_ARGS "")
    list(APPEND HDF5_CMAKE_ARGS
@@ -32,7 +38,7 @@
       -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
       -DHDF5_BUILD_FORTRAN:BOOL=ON
       -DHDF5_BUILD_CPP_LIB:BOOL=ON
-      -DBUILD_SHARED_LIBS:STRING=${BUILD_SHARED_LIBS}
+      -DBUILD_SHARED_LIBS:BOOL=${LIB_SHARED}
       -DHDF5_EXPORTED_TARGETS:STRING=hdf5-targets
       -DBUILD_TESTING:BOOL=OFF
       -DHDF5_BUILD_EXAMPLES:BOOL=OFF
@@ -40,7 +46,8 @@
       -DHDF5_BUILD_HL_LIB:BOOL=OFF
       -DHDF5_NO_PACKAGES:BOOL=OFF
       -DHDF5_PACKAGE_EXTLIBS:BOOL=OFF
-      -DALLOW_UNSUPPORTED:BOOL=ON)
+      -DALLOW_UNSUPPORTED:BOOL=ON
+      -DCMAKE_CXX_FLAGS:STRING=${CMAKE_CXX_FLAGS})
 #      -DHDF5_LIBRARIES_TO_EXPORT="hdf5;hdf5_fortran;hdf5_cpp;hdf5_f90cstub")
 
 
@@ -55,39 +62,51 @@
          set(localZLIB_args "")
          list(APPEND localZLIB_args
             -DZLIB_EXTERNALLY_CONFIGURED:BOOL=ON
-            -DCMAKE_INSTALL_PREFIX=${3rd_party_BUILD_DIR}
-            -DBUILD_SHARED_LIBS:BOOL=${BUILD_SHARED_LIBS}
+            -DCMAKE_INSTALL_PREFIX:STRING=${3rd_party_BUILD_DIR}
+            -DBUILD_SHARED_LIBS:BOOL=${LIB_SHARED}
             -DZLIB_PACKAGE_EXT:STRING=${HDF_PACKAGE_EXT}
             -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
-            -DCMAKE_ANSI_CFLAGS:STRING=${CMAKE_ANSI_CFLAGS})
+            -DCMAKE_CXX_FLAGS:STRING=${CMAKE_CXX_FLAGS})
 
          ExternalProject_Add(localZLIB
             PREFIX 3rd_party
             URL ${CMAKE_SOURCE_DIR}/external/ZLib.tar.gz
             CMAKE_ARGS ${localZLIB_args})
   
-         ExternalProject_Get_Property (localZLIB BINARY_DIR SOURCE_DIR INSTALL_DIR)
+         ExternalProject_Get_Property (localZLIB BINARY_DIR )
+         ExternalProject_Get_Property (localZLIB SOURCE_DIR )
+         ExternalProject_Get_Property (localZLIB INSTALL_DIR)
+         set(localZLIB_BINARY_DIR ${BINARY_DIR})
+         set(localZLIB_BINARY_DIR ${SOURCE_DIR})
+         set(localZLIB_BINARY_DIR ${INSTALL_DIR})
 
-         add_library(ZLIB UNKNOWN IMPORTED)
+         set(localZLIB_INCLUDE_DIR ${3rd_party_BUILD_DIR}/src/localZLIB)
+         link_directories(${localZLIB_INCLUDE_DIR})
 
          if (WIN32)
             set (localZLIB_LIB_NAME "zlib")
          else ()
             set (localZLIB_LIB_NAME "z")
          endif ()
-         set (localZLIB_INCLUDE_DIR     ${INSTALL_DIR})
-         set (localZLIB_INCLUDE_DIR_GEN ${SOURCE_DIR})
-         set (localZLIB_LIBRARY ${3rd_party_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${localZLIB_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX})
+         if (${LIB_TYPE} MATCHES "SHARED")
+            set (localZLIB_LIBRARY ${3rd_party_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${localZLIB_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
+         elseif (${LIB_TYPE} MATCHES "STATIC")
+            set (localZLIB_LIBRARY ${3rd_party_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${localZLIB_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
+         endif()
          set (ZLIB_FOUND 1)
-         set (localZLIB_INCLUDE_DIRS ${localZLIB_INCLUDE_DIR} ${localZLIB_INCLUDE_DIR_GEN})
-         set (ZLIB_LIBRARIES ${localZLIB_LIB_NAME})
 
             # Now set some more info for the HDF5 compile
          list(APPEND HDF5_CMAKE_ARGS
             -DZLIB_USE_EXTERNAL:BOOL=ON
             -DH5_ZLIB_HEADER:STRING=zlib.h
-            -DZLIB_LIBRARY:FILEPATH=${localZLIB_LIBRARY}
-            -DZLIB_INCLUDE_DIR:PATH=${localZLIB_INCLUDE_DIRS})
+            -DZLIB_INCLUDE_DIR:PATH=${localZLIB_INCLUDE_DIR})
+         if (${LIB_TYPE} MATCHES "SHARED")
+            list(APPEND HDF5_CMAKE_ARGS
+               -DZLIB_SHARED_LIBRARY:FILEPATH=${localZLIB_LIBRARY})
+         elseif (${LIB_TYPE} MATCHES "STATIC")
+            list(APPEND HDF5_CMAKE_ARGS
+               -DZLIB_LIBRARIES:FILEPATH=${localZLIB_LIBRARY})
+         endif()
       else( BUILD_ZLIB )
          # Force it to use the system one if it can find it (which it should have before when the BUILD_ZLIB flag was set)
          list(APPEND HDF5_CMAKE_ARGS
@@ -119,7 +138,9 @@
          SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/hdf5-1.8.19")
 
    externalproject_get_property (localHDF5 BINARY_DIR SOURCE_DIR INSTALL_DIR)
-   add_library(HDF5 UNKNOWN IMPORTED GLOBAL)
+
+#   add_library(HDF5 UNKNOWN IMPORTED GLOBAL)
+#   link_directories(${3rd_party_LIB_DIR})
 
 
 #FIXME: this should be possible to do, but I'm not sure how just yet.  How do I get the targets?
@@ -129,18 +150,50 @@
 
 
       # Can't find a way to automate this.  Not sure how to get the hdf5-targets exported from the HDF5 build.
-   if (${LIB_TYPE} MATCHES "SHARED")
-      set(HDF5_LIBRARIES
-         ${CMAKE_SHARED_LIBRARY_PREFIX}hdf5_fortran-shared${CMAKE_SHARED_LIBRARY_SUFFIX}
-         ${CMAKE_SHARED_LIBRARY_PREFIX}hdf5_f90cstub-shared${CMAKE_SHARED_LIBRARY_SUFFIX}
-         ${CMAKE_SHARED_LIBRARY_PREFIX}hdf5_cpp-shared${CMAKE_SHARED_LIBRARY_SUFFIX}
-         ${CMAKE_SHARED_LIBRARY_PREFIX}hdf5-shared${CMAKE_SHARED_LIBRARY_SUFFIX}      )
-   elseif (${LIB_TYPE} MATCHES "STATIC")
-      set(HDF5_LIBRARIES
-         ${CMAKE_STATIC_LIBRARY_PREFIX}hdf5_fortran-static${CMAKE_STATIC_LIBRARY_SUFFIX}
-         ${CMAKE_STATIC_LIBRARY_PREFIX}hdf5_f90cstub-static${CMAKE_STATIC_LIBRARY_SUFFIX}
-         ${CMAKE_STATIC_LIBRARY_PREFIX}hdf5_cpp-static${CMAKE_STATIC_LIBRARY_SUFFIX}
-         ${CMAKE_STATIC_LIBRARY_PREFIX}hdf5-static${CMAKE_STATIC_LIBRARY_SUFFIX}      )
+   set(HDF5_LIBRARIES
+      ${CMAKE_SHARED_LIBRARY_PREFIX}hdf5_fortran
+      ${CMAKE_SHARED_LIBRARY_PREFIX}hdf5_f90cstub
+      ${CMAKE_SHARED_LIBRARY_PREFIX}hdf5_cpp
+      ${CMAKE_SHARED_LIBRARY_PREFIX}hdf5)
+   if (WIN32)
+      if (${LIB_TYPE} MATCHES "SHARED")
+         set(templist "")
+         foreach (libname ${HDF5_LIBRARIES})
+            LIST(APPEND templist "${libname}_D${CMAKE_SHARED_LIBRARY_SUFFIX}")
+         endforeach()
+         set(HDF5_LIBRARIES "${templist}")
+      elseif (${LIB_TYPE} MATCHES "STATIC")
+#Need to add the debug / release info in pathname
+         set(templist "")
+         foreach (libname ${HDF5_LIBRARIES})
+            LIST(APPEND templist "${libname}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+         endforeach()
+         set(HDF5_LIBRARIES "${templist}")
+      endif()
+   else()
+      if (${LIB_TYPE} MATCHES "SHARED")
+         set(templist "")
+         foreach (libname ${HDF5_LIBRARIES})
+            LIST(APPEND templist "${libname}-shared${CMAKE_SHARED_LIBRARY_SUFFIX}")
+         endforeach()
+         set(HDF5_LIBRARIES "${templist}")
+#         set(HDF5_LIBRARIES
+#            ${CMAKE_SHARED_LIBRARY_PREFIX}hdf5_fortran-shared${CMAKE_SHARED_LIBRARY_SUFFIX}
+#            ${CMAKE_SHARED_LIBRARY_PREFIX}hdf5_f90cstub-shared${CMAKE_SHARED_LIBRARY_SUFFIX}
+#            ${CMAKE_SHARED_LIBRARY_PREFIX}hdf5_cpp-shared${CMAKE_SHARED_LIBRARY_SUFFIX}
+#            ${CMAKE_SHARED_LIBRARY_PREFIX}hdf5-shared${CMAKE_SHARED_LIBRARY_SUFFIX}      )
+      elseif (${LIB_TYPE} MATCHES "STATIC")
+         set(templist "")
+         foreach (libname ${HDF5_LIBRARIES})
+            LIST(APPEND templist "${libname}-static${CMAKE_STATIC_LIBRARY_SUFFIX}")
+         endforeach()
+         set(HDF5_LIBRARIES "${templist}")
+#         set(HDF5_LIBRARIES
+#            ${CMAKE_STATIC_LIBRARY_PREFIX}hdf5_fortran-static${CMAKE_STATIC_LIBRARY_SUFFIX}
+#            ${CMAKE_STATIC_LIBRARY_PREFIX}hdf5_f90cstub-static${CMAKE_STATIC_LIBRARY_SUFFIX}
+#            ${CMAKE_STATIC_LIBRARY_PREFIX}hdf5_cpp-static${CMAKE_STATIC_LIBRARY_SUFFIX}
+#            ${CMAKE_STATIC_LIBRARY_PREFIX}hdf5-static${CMAKE_STATIC_LIBRARY_SUFFIX}      )
+      endif()
    endif()
 
 
@@ -148,8 +201,8 @@
 
       ##########################################
       # set some names for compilation / linking
-   if (HDF5_COMPRESSION)
-      set(HDF5_LIBRARIES ${HDF5_LIBRARIES} ${ZLIB_LIBRARIES})
+   if (BUILD_ZLIB)
+      set(HDF5_LIBRARIES ${HDF5_LIBRARIES} ${localZLIB_LIB_NAME})
    endif()
 
 
