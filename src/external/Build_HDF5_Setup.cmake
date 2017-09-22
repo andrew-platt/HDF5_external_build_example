@@ -12,7 +12,7 @@
 
 
 
-   # Need to set flags for C++11 standard.  HDF5 needs this, as does EnDyn.
+   # Need to set flags for C++11 standard.  HDF5 needs this
    include(CheckCXXCompilerFlag)
    CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
    CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
@@ -188,8 +188,11 @@
 
       ##########################################
       # set some names for compilation / linking
+   #FIXME: if we don't build, we need to add the zlib dependencies to the libs.
    if (BUILD_ZLIB)
       set(HDF5_LIBRARIES ${HDF5_LIBRARIES} ${localZLIB_LIB_NAME})
+   else()
+      set(HDF5_LIBRARIES ${HDF5_LIBRARIES} ${ZLIB_LIBRARIES})
    endif()
 
 

@@ -52,11 +52,10 @@ if ( BUILD_HDF5 )
  
       # If we are going to use ZLib, first look for it
    if (HDF5_COMPRESSION)
-
-#FIXME: not sure what I did, but cannot compile with system zlib anymore on the mac or linux with static....????
-#      if (NOT APPLE)
-#         find_package(ZLIB)
-#      endif()
+         # See if there is a system lib we can use.  If not, build one.
+      if (NOT APPLE) #Something breaks this???
+         find_package(ZLIB)
+      endif()
       if ( NOT ZLIB_FOUND )
          message ( STATUS "ZLIB not found.  Building from source..." )
          set ( BUILD_ZLIB TRUE )
