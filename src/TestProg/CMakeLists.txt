@@ -8,7 +8,7 @@ LINK_DIRECTORIES (${HDF5_LINK_DIRECTORIES})
 
 add_executable(rdwt h5_rdwt.f90)
 target_link_libraries(rdwt  ${HDF5_LIBRARIES})
-
+add_dependencies(rdwt localHDF5)
 
 
 
@@ -21,7 +21,7 @@ LINK_DIRECTORIES (${HDF5_LINK_DIRECTORIES})
 
 add_executable(cmprss h5_cmprss.f90)
 target_link_libraries(cmprss ${HDF5_LIBRARIES}) 
-
+add_dependencies(cmprss localHDF5)
 
 
 
@@ -34,5 +34,5 @@ LINK_DIRECTORIES (${HDF5_LINK_DIRECTORIES})
 
 add_executable(TestCase TestCase.f90)
 target_link_libraries(TestCase ${HDF5_LIBRARIES}) 
-
+add_dependencies(TestCase localHDF5)
 

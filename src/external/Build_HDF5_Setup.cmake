@@ -34,7 +34,7 @@
    list(APPEND HDF5_CMAKE_ARGS
       -DCMAKE_INSTALL_PREFIX:STRING=${3rd_party_BUILD_DIR}
       -DCMAKE_Fortran_MODULE_DIRECTORY:STRING=${HDF5_CMAKE_Fortran_MODULE_DIRECTORY}
-      -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
+      -DCMAKE_BUILD_TYPE:STRING=Release
       -DHDF5_BUILD_FORTRAN:BOOL=ON
       -DHDF5_BUILD_CPP_LIB:BOOL=ON
       -DBUILD_SHARED_LIBS:BOOL=${LIB_SHARED}
@@ -47,11 +47,6 @@
       -DHDF5_PACKAGE_EXTLIBS:BOOL=OFF
       -DALLOW_UNSUPPORTED:BOOL=ON
       -DHDF5_ALLOW_EXTERNAL_SUPPORT:BOOL=ON 
-#options don't work on linux??
-#      -DCMAKE_RUNTIME_OUTPUT_DIRECTORY:PATH=${3rd_party_LIB_DIR}
-#      -DCMAKE_LIBRARY_OUTPUT_DIRECTORY:PATH=${3rd_party_LIB_DIR}
-#      -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY:PATH=${3rd_party_LIB_DIR}
-#      -DCMAKE_PDB_OUTPUT_DIRECTORY:PATH=${3rd_party_LIB_DIR}
       -DCMAKE_CXX_FLAGS:STRING=${CMAKE_CXX_FLAGS})
 
 
@@ -68,19 +63,18 @@
             -DZLIB_EXTERNALLY_CONFIGURED:BOOL=ON
             -DCMAKE_INSTALL_PREFIX:STRING=${3rd_party_BUILD_DIR}
             -DBUILD_SHARED_LIBS:BOOL=${LIB_SHARED}
-            -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE})
-#            -DCMAKE_RUNTIME_OUTPUT_DIRECTORY:PATH=${3rd_party_LIB_DIR}
-#            -DCMAKE_LIBRARY_OUTPUT_DIRECTORY:PATH=${3rd_party_LIB_DIR})
-#            -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY:PATH=${3rd_party_LIB_DIR}
-#            -DCMAKE_PDB_OUTPUT_DIRECTORY:PATH=${3rd_party_LIB_DIR})
-#            -DZLIB_PACKAGE_EXT:STRING=${HDF_PACKAGE_EXT}
-#            -DCMAKE_CXX_FLAGS:STRING=${CMAKE_CXX_FLAGS}
-#            -DZLIB_USE_EXTERNAL:BOOL=OFF)
+            -DCMAKE_CONFIGURATION_TYPES:STRING=Release
+            -DCMAKE_BUILD_TYPE:STRING=Release)
 
          ExternalProject_Add(localZLIB
             PREFIX 3rd_party
+            BUILD_COMMAND ""
+            INSTALL_DIR ${3rd_party_LIB_DIR}
             URL ${CMAKE_SOURCE_DIR}/external/ZLib.tar.gz
-            CMAKE_ARGS ${localZLIB_args})
+            CMAKE_ARGS ${localZLIB_args}
+            INSTALL_COMMAND
+               "${CMAKE_COMMAND}" --build . --config ${CMAKE_BUILD_TYPE} --target install
+            )
   
          ExternalProject_Get_Property (localZLIB BINARY_DIR )
          ExternalProject_Get_Property (localZLIB SOURCE_DIR)
@@ -88,26 +82,33 @@
          set(localZLIB_BINARY_DIR ${BINARY_DIR})
          set(localZLIB_SOURCE_DIR ${SOURCE_DIR})
          set(localZLIB_INSTALL_DIR ${INSTALL_DIR})
-
-         set(localZLIB_INCLUDE_DIR ${3rd_party_BUILD_DIR}/src/localZLIB)
+         set(localZLIB_INCLUDE_DIR ${3rd_party_BUILD_DIR}/include)
          link_directories(${localZLIB_INCLUDE_DIR})
 
 
          if (WIN32)
-            set (localZLIB_LIB_NAME "zlib")
+#            set (localZLIB_LIB_NAME "zlib")
+#FIXME: add shared here
+            set (localZLIB_LIB_NAME "${CMAKE_STATIC_LIBRARY_PREFIX}libzlib${CMAKE_STATIC_LIBRARY_SUFFIX}")
          else ()
-            set (localZLIB_LIB_NAME "z")
+#            set (localZLIB_LIB_NAME "z")
+            set (localZLIB_LIB_NAME "${CMAKE_STATIC_LIBRARY_PREFIX}z${CMAKE_STATIC_LIBRARY_SUFFIX}")
          endif ()
-         set (localZLIB_LIBRARY ${3rd_party_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${localZLIB_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX})
-         if (WIN32)
-            set (localZLIB_LIBRARY "optimized ${localZLIB_LIBRARY} debug ${3rd_party_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${localZLIB_LIB_NAME}_D${CMAKE_STATIC_LIBRARY_SUFFIX}")       #spec both optimized and debug
-         endif()
+#         set (localZLIB_LIBRARY ${3rd_party_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${localZLIB_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX})
+         set (localZLIB_LIBRARY ${3rd_party_LIB_DIR}/${localZLIB_LIB_NAME})
+# NOTE: Only supporting release builds of ZLIB at present
+#         if (WIN32)
+#            set (localZLIB_LIBRARY optimized ${localZLIB_LIBRARY} debug ${3rd_party_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${localZLIB_LIB_NAME}_D${CMAKE_STATIC_LIBRARY_SUFFIX})       #spec both optimized and debug
+#            set (localZLIB_LIBRARY ${3rd_party_LIB_DIR}/lib${CMAKE_STATIC_LIBRARY_PREFIX}${localZLIB_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX})       #spec both optimized and debug
+#         endif()
+
 
          if (${LIB_TYPE} MATCHES "SHARED")
             set (localZLIB_SHARED_LIBRARY ${3rd_party_LIB_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}${localZLIB_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
-            if (WIN32)
-               set (localZLIB_SHARED_LIBRARY "optimized ${localZLIB_SHARED_LIBRARY} debug ${3rd_party_LIB_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}${localZLIB_LIB_NAME}_D${CMAKE_SHARED_LIBRARY_SUFFIX}")       #spec both optimized and debug
-            endif()
+# NOTE: Only supporting release builds at present
+#            if (WIN32)
+#               set (localZLIB_SHARED_LIBRARY ${localZLIB_SHARED_LIBRARY} )       #spec both optimized and debug
+#            endif()
          endif()
          set (ZLIB_FOUND 1)
 
@@ -115,9 +116,13 @@
             # Now set some more info for the HDF5 compile
          list(APPEND HDF5_CMAKE_ARGS
             -DZLIB_USE_EXTERNAL:BOOL=ON
-            -DH5_ZLIB_HEADER:STRING=zlib.h
-            -DZLIB_INCLUDE_DIR:PATH=${localZLIB_INCLUDE_DIR}
-            -DZLIB_LIBRARIES:FILEPATH=${localZLIB_LIBRARY})
+            -DH5_ZLIB_HEADER:STRING=${localZLIB_INCLUDE_DIR}/zlib.h
+            -DCMAKE_INSTALL_PREFIX:PATH=${3rd_party_BUILD_DIR}
+            -DZLIB_INCLUDE_DIR=${3rd_party_BUILD_DIR}/include
+            -DZLIB_LIBRARY=${localZLIB_LIBRARY}
+            -DCMAKE_CONFIGURATION_TYPES=Release
+            -DZLIB_FOUND=${ZLIB_FOUND})
+
          if (${LIB_TYPE} MATCHES "SHARED")
             list(APPEND HDF5_CMAKE_ARGS
                -DZLIB_SHARED_LIBRARY:FILEPATH=${localZLIB_SHARED_LIBRARY})
@@ -147,8 +152,12 @@
          DEPENDS ${HDF5_DEPENDS}
          CMAKE_ARGS ${HDF5_CMAKE_ARGS}
          INSTALL_DIR ${3rd_party_LIB_DIR}
-#         SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/hdf5-1.10.1")
-         SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/hdf5-1.8.19")
+         SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/hdf5-1.10.1"
+#         SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/hdf5-1.8.19"
+         BUILD_COMMAND ""
+         INSTALL_COMMAND
+            "${CMAKE_COMMAND}" --build . --config ${CMAKE_BUILD_TYPE} --target install
+         )
 
    externalproject_get_property (localHDF5 BINARY_DIR SOURCE_DIR INSTALL_DIR)
 
@@ -163,11 +172,13 @@
       set(templist "")
       foreach (libname ${HDF5_LIBRARIES})
          if (${LIB_TYPE} MATCHES "SHARED")
-           LIST(APPEND templist "optimized ${CMAKE_SHARED_LIBRARY_PREFIX}${libname}${CMAKE_SHARED_LIBRARY_SUFFIX}")
-           LIST(APPEND templist "debug ${CMAKE_SHARED_LIBRARY_PREFIX}${libname}_D${CMAKE_SHARED_LIBRARY_SUFFIX}")
+           LIST(APPEND templist "lib${CMAKE_SHARED_LIBRARY_PREFIX}${libname}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+#           LIST(APPEND templist "optimized ${CMAKE_SHARED_LIBRARY_PREFIX}${libname}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+#           LIST(APPEND templist "debug ${CMAKE_SHARED_LIBRARY_PREFIX}${libname}_D${CMAKE_SHARED_LIBRARY_SUFFIX}")
          elseif (${LIB_TYPE} MATCHES "STATIC")
-           LIST(APPEND templist "optimized ${CMAKE_STATIC_LIBRARY_PREFIX}${libname}${CMAKE_STATIC_LIBRARY_SUFFIX}")
-           LIST(APPEND templist "debug ${CMAKE_STATIC_LIBRARY_PREFIX}${libname}_D${CMAKE_STATIC_LIBRARY_SUFFIX}")
+           LIST(APPEND templist "lib${CMAKE_STATIC_LIBRARY_PREFIX}${libname}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+#           LIST(APPEND templist "optimized ${CMAKE_STATIC_LIBRARY_PREFIX}${libname}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+#           LIST(APPEND templist "debug ${CMAKE_STATIC_LIBRARY_PREFIX}${libname}_D${CMAKE_STATIC_LIBRARY_SUFFIX}")
         endif()
      endforeach()
      set(HDF5_LIBRARIES "${templist}")
@@ -177,7 +188,7 @@
          if (${LIB_TYPE} MATCHES "SHARED")
             LIST(APPEND templist "${CMAKE_SHARED_LIBRARY_PREFIX}${libname}-shared${CMAKE_SHARED_LIBRARY_SUFFIX}")
          elseif (${LIB_TYPE} MATCHES "STATIC")
-            LIST(APPEND templist "${CMAKE_STATIC_LIBRARY_PREFIX}${libname}-static${CMAKE_STATIC_LIBRARY_SUFFIX}")
+            LIST(APPEND templist "${CMAKE_STATIC_LIBRARY_PREFIX}${libname}${CMAKE_STATIC_LIBRARY_SUFFIX}")
          endif()
       endforeach()
       set(HDF5_LIBRARIES "${templist}")
@@ -203,13 +214,13 @@
    endif()
 
    set (HDF5_LINK_DIRECTORIES "${3rd_party_LIB_DIR}")
-   set (HDF5_INCLUDE_PATH "${HDF5_CMAKE_Fortran_MODULE_DIRECTORY}/${SEARCH_TYPE}")
+   set (HDF5_INCLUDE_PATH "${3rd_party_INCLUDE_DIR};${3rd_party_Fortran_MODULE_DIR}/${SEARCH_TYPE}")
 
       # Visual studio puts things in funny places. There is probably a cleaner way to set the path based on returned values from HDF5, but I don't know how yet.
    if (MSVC)
-      set (HDF5_INCLUDE_PATH "${HDF5_CMAKE_Fortran_MODULE_DIRECTORY}/$(ConfigurationName)")
-      set (HDF5_LINK_DIRECTORIES "${3rd_party_LIB_DIR}/$(ConfigurationName)")
+      set (HDF5_INCLUDE_PATH "${3rd_party_INCLUDE_DIR};${3rd_party_Fortran_MODULE_DIR}/${SEARCH_TYPE}/Release")    #$(ConfigurationName)")
    endif()
 
-
-
+message(STATUS "HDF5_INCLUDE_PATH: ${HDF5_INCLUDE_PATH}")
+message(STATUS "HDF5_LIBRARIES: ${HDF5_LIBRARIES}")
+message(STATUS "HDF5_LINK_DIRECTORIES: ${HDF5_LINK_DIRECTORIES}")
