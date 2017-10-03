@@ -17,6 +17,9 @@ ELSE()
 ENDIF()
 
 
+# force building HDF5 from the source files.
+option(BUILD_HDF5_FROM_SOURCE "Build HDF5 from source" ON)
+
 
    # location of 3rd party builds
 set (3rd_party_BUILD_DIR            "${CMAKE_CURRENT_BINARY_DIR}/3rd_party")
@@ -33,9 +36,15 @@ set (LIB_TYPE STATIC)
 string(TOLOWER ${LIB_TYPE} SEARCH_TYPE)         # make lower case and store as SEARCH_TYPE.  This is used for finding the HDF5 libraries to link
 
 #### Check if we have HDF5 already
-#find_package ( HDF5_fortran QUIET)
-if ( NOT HDF5_FOUND )
+find_package ( HDF5_fortran QUIET)
+if (NOT HDF5_fortran_FOUND) 
     message ( STATUS "HDF5 not found. Building from source...")
+    set ( BUILD_HDF5 TRUE )
+elseif(BUILD_HDF5_FROM_SOURCE)
+    unset(HDF5_fortran CACHE)
+    unset(HDF5_fortran_LIBRARIES CACHE)
+    unset(HDF5_fortran_FOUND CACHE)
+    message ( STATUS "Building HDF5 from source...")
     set ( BUILD_HDF5 TRUE )
 else()
     set ( BUILD_HDF5 FALSE )
